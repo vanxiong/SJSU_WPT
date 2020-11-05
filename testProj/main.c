@@ -1,6 +1,20 @@
 // Included Files ---
 #include "F28x_Project.h"
 
+
+// Included for PID debugging
+#include <stdio.h>
+#include <time.h>
+
+
+// Variables for PID controller
+unsigned long lastTime; // Uint64
+double PID_Input, PID_Output, Setpoint;
+double errSum, lastErr;
+double kp, ki, kd;
+int SampleTime = 1000; //1 sec
+
+
 // Defines (PWM)
 #define EPWM1_MAX_DB   0x070
 #define EPWM2_MAX_DB   0x070
@@ -267,6 +281,8 @@ void main(void)
         A = A+1;
        // DELAY_US(10000);
        // asm("   ESTOP0");
+
+	Compute(); /// function to compute PID
 
     }while(1);
 }
@@ -566,4 +582,55 @@ void SetupADCSoftware(void)
 
     EDIS;
 }
+
+
+// For computing PID controller variables
+void Compute()
+{
+   unsigned long now = 1.8;  // Need a timing function get_ticks()
+   int timeChange = (now - lastTime);
+   if(timeChange>=SampleTime)
+   {
+
+      /*Compute all the working error variables*/
+      double error = Setpoint - PID_Input;  // PID_Input frequency
+      errSum += error;
+      double dErr = (error - lastErr);
+
+      /*Compute PID Output*/
+      PID_Output = kp * error + ki * errSum + kd * dErr;
+
+      /*Remember some variables for next time*/
+      lastErr = error;
+      lastTime = now;
+   }
+}
+
+
+// For adjusting the response
+void SetTunings(double Kp1, double Ki1, double Kd1)
+{
+  double SampleTimeInSec = ((double)SampleTime)/1000;
+   kp = Kp;
+   ki = Ki * SampleTimeInSec;
+   kd = Kd / SampleTimeInSec;
+}
+
+// Get new response
+void SetSampleTime(int NewSampleTime)
+{
+   if (NewSampleTime > 0)
+   {
+      double ratio  = (double)NewSampleTime
+                      / (double)SampleTime;
+      ki *= ratio;
+      kd /= ratio;
+      SampleTime = (unsigned long)NewSampleTime;
+   }
+}
+
+
+
+
+
 // End of file
