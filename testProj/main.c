@@ -174,6 +174,7 @@ void main(void)
     float ErrorProportional       = 0;
     float ErrorIntegral           = 0;
     float ErrorDerivative         = 0;
+    float PID_Output              = 0;
 
 // loop forever:
     do
@@ -250,8 +251,12 @@ void main(void)
         // Derivative Error
         ErrorDerivative = ErrorVoltage - ErrorPrevious;
 
-        // PID_OUT
-        /*-----------------------------------------------------------*/
+        /*------------------- pid control output ----------------------*/
+// Feed this back to the system
+        PID_Output = (Kp * ErrorProportional) + (Kd * ErrorIntegral )+ (Kd * ErrorDerivative);
+
+// This is our new frequency
+        //Freq = PID_Output; // Placed directly in the period change, takes a few microseconds
 
         TBPRD = 1/(Freq*(1.0/100000000))-1; // TBPRD = [1/(fpwm*Tclk)]-1  ----------  fpwm = 1/Tpwm  -->  Tpwm = (TBPRD+1)*Tclk  where tclk = 1/100Mhz
         EPwm1Regs.TBPRD         = TBPRD;
