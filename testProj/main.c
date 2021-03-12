@@ -188,6 +188,7 @@ void main(void)
     float ErrorProportional       = 0;
     float ErrorIntegral           = 0;
     float ErrorDerivative         = 0;
+    float PID_Output              = 0;
 
 // loop forever:
     do
@@ -264,8 +265,13 @@ void main(void)
         // Derivative Error
         ErrorDerivative = ErrorVoltage - ErrorPrevious;
 
-        // PID_OUT
-        /*-----------------------------------------------------------*/
+        /*------------------- pid control output ----------------------*/
+// Feed this back to the system
+        PID_Output = (Kp * ErrorProportional) + (Kd * ErrorIntegral )+ (Kd * ErrorDerivative);
+
+// This is our new frequency
+        //Freq = PID_Output; // Placed directly in the period change, takes a few microseconds
+
 
         TBPRD = 1/(Freq*(1.0/100000000))-1; // TBPRD = [1/(fpwm*Tclk)]-1  ----------  fpwm = 1/Tpwm  -->  Tpwm = (TBPRD+1)*Tclk  where tclk = 1/100Mhz
         EPwm1Regs.TBPRD         = TBPRD;
@@ -582,54 +588,6 @@ void SetupADCSoftware(void)
 
     EDIS;
 }
-
-
-// For computing PID controller variables
-void Compute()
-{
-   unsigned long now = 1.8;  // Need a timing function get_ticks()
-   int timeChange = (now - lastTime);
-   if(timeChange>=SampleTime)
-   {
-
-      /*Compute all the working error variables*/
-      double error = Setpoint - PID_Input;  // PID_Input frequency
-      errSum += error;
-      double dErr = (error - lastErr);
-
-      /*Compute PID Output*/
-      PID_Output = kp * error + ki * errSum + kd * dErr;
-
-      /*Remember some variables for next time*/
-      lastErr = error;
-      lastTime = now;
-   }
-}
-
-
-// For adjusting the response
-void SetTunings(double Kp1, double Ki1, double Kd1)
-{
-  double SampleTimeInSec = ((double)SampleTime)/1000;
-   kp = Kp;
-   ki = Ki * SampleTimeInSec;
-   kd = Kd / SampleTimeInSec;
-}
-
-// Get new response
-void SetSampleTime(int NewSampleTime)
-{
-   if (NewSampleTime > 0)
-   {
-      double ratio  = (double)NewSampleTime
-                      / (double)SampleTime;
-      ki *= ratio;
-      kd /= ratio;
-      SampleTime = (unsigned long)NewSampleTime;
-   }
-}
-
-
 
 
 
