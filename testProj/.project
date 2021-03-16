@@ -36,6 +36,11 @@
 			<locationURI>PROJECT_LOC/F2837xD_CodeStartBranch.asm</locationURI>
 		</link>
 		<link>
+			<name>F2837xD_CpuTimers.c</name>
+			<type>1</type>
+			<locationURI>PARENT-6-PROJECT_LOC/Applications/ti/c2000/C2000Ware_3_04_00_00/device_support/f2837xd/common/source/F2837xD_CpuTimers.c</locationURI>
+		</link>
+		<link>
 			<name>F2837xD_DefaultISR.c</name>
 			<type>1</type>
 			<locationURI>PROJECT_LOC/F2837xD_DefaultISR.c</locationURI>
@@ -84,11 +89,11 @@
 	<variableList>
 		<variable>
 			<name>INSTALLROOT_F2837XD</name>
-			<value>$%7BPARENT-4-ORIGINAL_PROJECT_ROOT%7D</value>
+			<value>file:/Applications/ti/c2000/C2000Ware_3_04_00_00/device_support/f2837xd/examples/cpu1/epwm_up_aq/cpu01/ccs</value>
 		</variable>
 		<variable>
 			<name>ORIGINAL_PROJECT_ROOT</name>
-			<value>file:/C:/ti/c2000/C2000Ware_3_02_00_00/device_support/f2837xd/examples/cpu1/epwm_up_aq/cpu01/ccs</value>
+			<value>file:/Applications/ti/c2000/C2000Ware_3_04_00_00/device_support/f2837xd/examples/cpu1/epwm_up_aq/cpu01/ccs</value>
 		</variable>
 	</variableList>
 </projectDescription>

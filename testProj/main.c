@@ -41,9 +41,9 @@ int SampleTime = 1000; //1 sec
 
 //pid
 #define Voltage_Setpoint     1.8      // from 0V to 3.3V
-#define Kp  1
-#define Ki  1
-#define Kd  1
+#define Kp  20000
+#define Ki  10000
+#define Kd  3000
 #define ErrorIntegralMax    50
 #define ErrorIntegralMin    0
 
@@ -78,6 +78,10 @@ __interrupt void epwm4_isr(void);
 // Function Prototypes (ADC)
 void ConfigureADC(void);
 void SetupADCSoftware(void);
+
+// Function Prototypes (Interrupt)
+__interrupt void cpu_timer0_isr(void);
+
 
 // Main
 void main(void)
@@ -134,6 +138,9 @@ void main(void)
     CpuSysRegs.PCLKCR0.bit.TBCLKSYNC =0;
     EDIS;
 
+// Initialize the Device Peripheral
+    InitCpuTimers();
+
     InitEPwm1();
     InitEPwm2();
     InitEPwm3();
@@ -146,6 +153,23 @@ void main(void)
 //setup ADC on Channel 1
     ConfigureADC();
     SetupADCSoftware();
+
+// Configure CPU-Timer 0, 1, and 2 to interrupt every second:
+// 200MHz CPU Freq, 1 second Period (in uSeconds)
+    ConfigCpuTimer(&CpuTimer0, 200, 1000000);
+    ConfigCpuTimer(&CpuTimer1, 200, 1000000);
+    ConfigCpuTimer(&CpuTimer2, 200, 1000000);
+
+//
+// To ensure precise timing, use write-only instructions to write to the
+// entire register. Therefore, if any of the configuration bits are changed in
+// ConfigCpuTimer and InitCpuTimers (in F2837xD_cputimervars.h), the below
+// settings must also be updated.
+//
+    CpuTimer0Regs.TCR.all = 0x4000;
+    CpuTimer1Regs.TCR.all = 0x4000;
+    CpuTimer2Regs.TCR.all = 0x4000;
+
 
 // User specific code, enable interrupts:
 // Initialize counters:
@@ -183,6 +207,8 @@ void main(void)
     float Voltage_DSP_CS_OUTPUT   = AdcbResultRegs.ADCRESULT2;
     float Voltage_DSP_CS_RECT     = AdcbResultRegs.ADCRESULT3;
     float Voltage_DSP_CS_INPUT    = AdccResultRegs.ADCRESULT4;
+
+// For PID computation
     float ErrorVoltage            = 0;
     float ErrorPrevious           = 0;
     float ErrorProportional       = 0;
@@ -273,7 +299,7 @@ void main(void)
         //Freq = PID_Output; // Placed directly in the period change, takes a few microseconds
 
 
-        TBPRD = 1/(Freq*(1.0/100000000))-1; // TBPRD = [1/(fpwm*Tclk)]-1  ----------  fpwm = 1/Tpwm  -->  Tpwm = (TBPRD+1)*Tclk  where tclk = 1/100Mhz
+        TBPRD = 1/(PID_Output*(1.0/100000000))-1; // TBPRD = [1/(fpwm*Tclk)]-1  ----------  fpwm = 1/Tpwm  -->  Tpwm = (TBPRD+1)*Tclk  where tclk = 1/100Mhz
         EPwm1Regs.TBPRD         = TBPRD;
         EPwm1Regs.CMPA.bit.CMPA = TBPRD/2;
         EPwm2Regs.TBPRD         = TBPRD;
@@ -287,8 +313,6 @@ void main(void)
         A = A+1;
        // DELAY_US(10000);
        // asm("   ESTOP0");
-
-	Compute(); /// function to compute PID
 
     }while(1);
 }
@@ -588,6 +612,20 @@ void SetupADCSoftware(void)
 
     EDIS;
 }
+
+//
+// cpu_timer0_isr - CPU Timer0 ISR with interrupt counter
+//
+__interrupt void cpu_timer0_isr(void)
+{
+   CpuTimer0.InterruptCount++;
+
+   //
+   // Acknowledge this interrupt to receive more interrupts from group 1
+   //
+   PieCtrlRegs.PIEACK.all = PIEACK_GROUP1;
+}
+
 
 
 
