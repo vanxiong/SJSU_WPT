@@ -6,15 +6,6 @@
 #include <stdio.h>
 #include <time.h>
 
-
-// Variables for PID controller
-unsigned long lastTime; // Uint64
-double PID_Input, PID_Output, Setpoint;
-double errSum, lastErr;
-double kp, ki, kd;
-int SampleTime = 1000; //1 sec
-
-
 // Defines (PWM)
 #define EPWM1_MAX_DB   0x070
 #define EPWM2_MAX_DB   0x070
@@ -81,6 +72,23 @@ void SetupADCSoftware(void);
 
 // Function Prototypes (Interrupt)
 __interrupt void cpu_timer0_isr(void);
+
+
+Uint16 TBPRD; // TBPRD = [1/(fpwm*Tclk)]-1  ----------  fpwm = 1/Tpwm  -->  Tpwm = (TBPRD+1)*Tclk  where tclk = 1/100Mhz
+double Freq ;
+float Voltage_DSP_VS_INPUT    ;
+float Voltage_DSP_CS_INVER    ;
+float Voltage_DSP_CS_OUTPUT   ;
+float Voltage_DSP_CS_RECT     ;
+float Voltage_DSP_CS_INPUT    ;
+
+// For PID computation
+float ErrorVoltage            ;
+float ErrorPrevious           ;
+float ErrorProportional       ;
+double ErrorIntegral           ;
+float ErrorDerivative   ;
+double PID_Output;
 
 
 // Main
@@ -153,12 +161,13 @@ void main(void)
 //setup ADC on Channel 1
     ConfigureADC();
     SetupADCSoftware();
-
+/*
 // Configure CPU-Timer 0, 1, and 2 to interrupt every second:
 // 200MHz CPU Freq, 1 second Period (in uSeconds)
     ConfigCpuTimer(&CpuTimer0, 200, 1000000);
     ConfigCpuTimer(&CpuTimer1, 200, 1000000);
     ConfigCpuTimer(&CpuTimer2, 200, 1000000);
+    */
 
 //
 // To ensure precise timing, use write-only instructions to write to the
@@ -200,21 +209,22 @@ void main(void)
     EPwm4Regs.DBFED.bit.DBFED=EPWM4_MAX_DB;
     EPwm4Regs.DBRED.bit.DBRED=EPWM4_MIN_DB;
 
-    Uint16 TBPRD; // TBPRD = [1/(fpwm*Tclk)]-1  ----------  fpwm = 1/Tpwm  -->  Tpwm = (TBPRD+1)*Tclk  where tclk = 1/100Mhz
-    float Freq = 120000;
-    float Voltage_DSP_VS_INPUT    = AdcaResultRegs.ADCRESULT0;
-    float Voltage_DSP_CS_INVER    = AdcbResultRegs.ADCRESULT1;
-    float Voltage_DSP_CS_OUTPUT   = AdcbResultRegs.ADCRESULT2;
-    float Voltage_DSP_CS_RECT     = AdcbResultRegs.ADCRESULT3;
-    float Voltage_DSP_CS_INPUT    = AdccResultRegs.ADCRESULT4;
+//
+    TBPRD; // TBPRD = [1/(fpwm*Tclk)]-1  ----------  fpwm = 1/Tpwm  -->  Tpwm = (TBPRD+1)*Tclk  where tclk = 1/100Mhz
+    Freq = 120000;
+    Voltage_DSP_VS_INPUT    = AdcaResultRegs.ADCRESULT0;
+    Voltage_DSP_CS_INVER    = AdcbResultRegs.ADCRESULT1;
+    Voltage_DSP_CS_OUTPUT   = AdcbResultRegs.ADCRESULT2;
+    Voltage_DSP_CS_RECT     = AdcbResultRegs.ADCRESULT3;
+    Voltage_DSP_CS_INPUT    = AdccResultRegs.ADCRESULT4;
 
 // For PID computation
-    float ErrorVoltage            = 0;
-    float ErrorPrevious           = 0;
-    float ErrorProportional       = 0;
-    float ErrorIntegral           = 0;
-    float ErrorDerivative         = 0;
-    float PID_Output              = 0;
+    ErrorVoltage            = 0;
+    ErrorPrevious           = 0;
+    ErrorProportional       = 0;
+    ErrorIntegral           = 0;
+    ErrorDerivative         = 0;
+    PID_Output              = 0;
 
 // loop forever:
     do
@@ -245,7 +255,7 @@ void main(void)
 
         //store results
 
-        ADC_DSP_VS_INPUT    = AdcaResultRegs.ADCRESULT0;
+        ADC_DSP_VS_INPUT    = AdcaResultRegs.ADCRESULT0;  // vout input from hardware // pin 49 (double check) // 0 - 3.0 at max
         ADC_DSP_CS_INVER    = AdcbResultRegs.ADCRESULT1;
         ADC_DSP_CS_OUTPUT   = AdcbResultRegs.ADCRESULT2;
         ADC_DSP_CS_RECT     = AdcbResultRegs.ADCRESULT3;
@@ -274,19 +284,19 @@ void main(void)
         */
 
         /*----------------- pid control ---------------------------*/
-        ErrorVoltage        = Voltage_Setpoint - Voltage_DSP_CS_OUTPUT;
+        ErrorVoltage        = Voltage_Setpoint - 3.0;//Voltage_DSP_CS_OUTPUT;
 
         // Proportional Error
         ErrorProportional   = ErrorVoltage;
 
         // Integral Error with simple integral windup prevention
         ErrorIntegral = ErrorIntegral + ErrorVoltage;
-        if (ErrorIntegral > ErrorIntegralMax){
+        /*if (ErrorIntegral > ErrorIntegralMax){
             ErrorIntegral = ErrorIntegralMax;
         }
         if (ErrorIntegral < ErrorIntegralMin){
             ErrorIntegral = ErrorIntegralMin;
-        }
+        }*/
 
         // Derivative Error
         ErrorDerivative = ErrorVoltage - ErrorPrevious;
@@ -296,7 +306,7 @@ void main(void)
         PID_Output = (Kp * ErrorProportional) + (Kd * ErrorIntegral )+ (Kd * ErrorDerivative);
 
 // This is our new frequency
-        //Freq = PID_Output; // Placed directly in the period change, takes a few microseconds
+        Freq = PID_Output; // Placed directly in the period change, takes a few microseconds
 
 
         TBPRD = 1/(PID_Output*(1.0/100000000))-1; // TBPRD = [1/(fpwm*Tclk)]-1  ----------  fpwm = 1/Tpwm  -->  Tpwm = (TBPRD+1)*Tclk  where tclk = 1/100Mhz
@@ -619,6 +629,7 @@ void SetupADCSoftware(void)
 __interrupt void cpu_timer0_isr(void)
 {
    CpuTimer0.InterruptCount++;
+   GpioDataRegs.GPBTOGGLE.bit.GPIO34 = 1;
 
    //
    // Acknowledge this interrupt to receive more interrupts from group 1
