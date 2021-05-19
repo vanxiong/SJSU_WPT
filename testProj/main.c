@@ -51,6 +51,19 @@ Uint16 ADC_DSP_CS_OUTPUT;
 Uint16 ADC_DSP_CS_RECT;
 Uint16 ADC_DSP_CS_INPUT;
 
+float Freq = 120000;
+float Voltage_DSP_VS_INPUT;
+float Voltage_DSP_CS_INVER;
+float Voltage_DSP_CS_OUTPUT;
+float Voltage_DSP_CS_RECT;
+float Voltage_DSP_CS_INPUT;
+float ErrorVoltage            = 0;
+float ErrorPrevious           = 0;
+float ErrorProportional       = 0;
+float ErrorIntegral           = 0;
+float ErrorDerivative         = 0;
+float PID_Output              = 0;
+
 // Function Prototypes (PWM)
 void InitEPwm1(void);
 void InitEPwm2(void);
@@ -163,18 +176,12 @@ void main(void)
     EPwm4Regs.DBRED.bit.DBRED=EPWM4_MIN_DB;
 
     Uint16 TBPRD; // TBPRD = [1/(fpwm*Tclk)]-1  ----------  fpwm = 1/Tpwm  -->  Tpwm = (TBPRD+1)*Tclk  where tclk = 1/100Mhz
-    float Freq = 120000;
-    float Voltage_DSP_VS_INPUT    = AdcaResultRegs.ADCRESULT0;
-    float Voltage_DSP_CS_INVER    = AdcbResultRegs.ADCRESULT1;
-    float Voltage_DSP_CS_OUTPUT   = AdcbResultRegs.ADCRESULT2;
-    float Voltage_DSP_CS_RECT     = AdcbResultRegs.ADCRESULT3;
-    float Voltage_DSP_CS_INPUT    = AdccResultRegs.ADCRESULT4;
-    float ErrorVoltage            = 0;
-    float ErrorPrevious           = 0;
-    float ErrorProportional       = 0;
-    float ErrorIntegral           = 0;
-    float ErrorDerivative         = 0;
-    float PID_Output              = 0;
+    Voltage_DSP_VS_INPUT    = AdcaResultRegs.ADCRESULT0;
+    Voltage_DSP_CS_INVER    = AdcbResultRegs.ADCRESULT1;
+    Voltage_DSP_CS_OUTPUT   = AdcbResultRegs.ADCRESULT2;
+    Voltage_DSP_CS_RECT     = AdcbResultRegs.ADCRESULT3;
+    Voltage_DSP_CS_INPUT    = AdccResultRegs.ADCRESULT4;
+
 
 // loop forever:
     do
@@ -256,7 +263,7 @@ void main(void)
         PID_Output = (Kp * ErrorProportional) + (Kd * ErrorIntegral )+ (Kd * ErrorDerivative);
 
 // This is our new frequency
-        //Freq = PID_Output; // Placed directly in the period change, takes a few microseconds
+        Freq = PID_Output; // Placed directly in the period change, takes a few microseconds
 
         TBPRD = 1/(Freq*(1.0/100000000))-1; // TBPRD = [1/(fpwm*Tclk)]-1  ----------  fpwm = 1/Tpwm  -->  Tpwm = (TBPRD+1)*Tclk  where tclk = 1/100Mhz
         EPwm1Regs.TBPRD         = TBPRD;
@@ -572,3 +579,4 @@ void SetupADCSoftware(void)
     EDIS;
 }
 // End of file
+
